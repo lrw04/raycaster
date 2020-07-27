@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -12,11 +13,10 @@
 #define M_PI 3.14159265358979323846264338327950288
 #endif
 
-int SW, SH, BLK = 256;
+int SW, SH, BLK;
 double FOV, WALK, TURN;
 
 SDL_Window* window = NULL;
-SDL_Surface* screenSurface = NULL;
 SDL_Renderer* renderer = NULL;
 
 std::vector<std::string> world;
@@ -101,14 +101,14 @@ void drawLine(int x0, int y0, int x1, int y1, int r, int g, int b) {
     SDL_RenderDrawLine(renderer, x0, y0, x1, y1);
 }
 
-void walk(clock_t t) {
+void walk(long t) {
     px += t * WALK * cos(pa) / CLOCKS_PER_SEC;
     py += t * WALK * sin(pa) / CLOCKS_PER_SEC;
 }
 
-void turn(clock_t t) { pa += t * TURN / CLOCKS_PER_SEC; }
+void turn(long t) { pa += t * TURN / CLOCKS_PER_SEC; }
 
-void side(clock_t t) { // pa + pi/2
+void side(long t) { // pa + pi/2
     px -= t * WALK * sin(pa) / CLOCKS_PER_SEC;
     py += t * WALK * cos(pa) / CLOCKS_PER_SEC;
 }
@@ -117,8 +117,10 @@ void load(char* wn) {
     world.clear();
     std::ifstream wst(wn);
     std::string s;
-    wst >> pa;
+    wst >> pa >> FOV >> WALK >> TURN;
     pa *= M_PI / 180;
+    FOV *= M_PI / 180;
+    BLK = SW / (2 * tan(FOV / 2));
     while (wst >> s) world.push_back(s);
     wst.close();
 
@@ -135,9 +137,8 @@ void load(char* wn) {
 
 void config(char* cfg) {
     std::ifstream cst(cfg);
-    cst >> SW >> SH >> FOV >> WALK >> TURN;
+    cst >> SW >> SH;
     cst.close();
-    FOV *= M_PI / 180;
     BLK = SW / (2 * tan(FOV / 2));
 }
 
@@ -158,18 +159,17 @@ int main(int argc, char* argv[]) {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
-    screenSurface = SDL_GetWindowSurface(window);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         printf("Cannot create renderer: %s\n", SDL_GetError());
         return -1;
     }
 
-    clock_t start = clock(), prev = clock();
+    long start = clock(), prev = clock();
     int frames = 0;
 
     while (true) {
-        clock_t cur = clock();
+        long cur = clock();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) goto quit;
@@ -197,9 +197,8 @@ int main(int argc, char* argv[]) {
         SDL_RenderPresent(renderer);
 
         frames++;
-        if (cur - start) printf("%d FPS\r", frames * CLOCKS_PER_SEC / (cur - start));
+        if (cur - start) printf("%d FPS, (%.2lf, %.2lf), %.2lf\r", frames * CLOCKS_PER_SEC / (cur - start), px, py, pa);
         prev = cur;
-        //printf("%.2lf %.2lf\r", px, py);
         if (clock() - start > CLOCKS_PER_SEC) {
             frames = 0;
             start = clock();
